@@ -11,6 +11,9 @@ from PIL import Image
 from torchvision.transforms import ToTensor
 from torch.utils.data import DataLoader
 
+import coremltools as ct
+import onnx
+
 import cv2
 face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
@@ -146,6 +149,28 @@ def main():
                     print('saving new model')
                     state = {'net': network.state_dict()}
                     torch.save(state, '../trained/model_%d_%d_%.4f.t7' % (epoch + 1, accuracy, total_validation_loss / (j + 1)))
+                    # Export to ONNX and CoreML
+                    dummy_input = torch.randn(1, 1, shape[0], shape[1]).to(device)
+                    torch.onnx.export(
+                        network,
+                        dummy_input,
+                        "../trained/blink.onnx",
+                        input_names=["image"],
+                        output_names=["blink_score"],
+                        opset_version=11
+                    )
+                    print("✅ Exported ONNX to ../trained/blink.onnx")
+
+                    # Convert to CoreML
+                    onnx_model = onnx.load("../trained/blink.onnx")
+                    mlmodel = ct.convert(
+                        onnx_model,
+                        inputs=[
+                            ct.ImageType(name="image", shape=(1, 1, shape[0], shape[1]), color_layout=ct.colorlayout.GRAYSCALE)
+                        ]
+                    )
+                    mlmodel.save("../trained/BlinkNet.mlmodel")
+                    print("✅ Saved CoreML model to BlinkNet.mlmodel")
                 min_validation_loss = total_validation_loss
 
             print('Epoch [%d/%d] validation Loss: %.4f, Accuracy: %.4f' % (
