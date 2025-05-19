@@ -165,6 +165,7 @@ def main():
                     onnx_model = onnx.load("../trained/blink.onnx")
                     mlmodel = ct.convert(
                         onnx_model,
+                        source="onnx",
                         inputs=[
                             ct.ImageType(name="image", shape=(1, 1, shape[0], shape[1]), color_layout=ct.colorlayout.GRAYSCALE)
                         ]
